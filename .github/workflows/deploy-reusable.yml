@@ -63,6 +63,11 @@ on:
         default: true
     
     
+    secrets:
+      ibmcloud-apikey:
+        description: 'IBM Cloud API key'
+        required: true
+    
     outputs:
       app-url:
         description: 'Deployed application URL'
@@ -107,7 +112,7 @@ jobs:
       
       - name: Debug inputs
         env:
-          API_KEY: ${{ secrets.IBMCLOUD_API_KEY }}
+          API_KEY: ${{ secrets.ibmcloud-apikey }}
         run: |
           echo "ICR Region: ${{ inputs.icr-region || vars.ICR_REGION }}"
           echo "ICR Namespace: ${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}"
@@ -123,7 +128,7 @@ jobs:
         id: push
         uses: huayuenh/container-registry-service-action@main
         with:
-          apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+          apikey: ${{ secrets.ibmcloud-apikey }}
           image: ${{ inputs.icr-region || vars.ICR_REGION }}/${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}/${{ steps.build.outputs.image-name }}
           local-image: ${{ steps.build.outputs.image-name }}
           action: push
@@ -148,7 +153,7 @@ jobs:
         uses: huayuenh/cluster-service-action@main
         with:
           image: ${{ needs.build.outputs.image }}
-          ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+          ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
           cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
           cluster-region: ${{ inputs.cluster-region || inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}
           config-file: .deploy.yaml
@@ -208,7 +213,7 @@ jobs:
         uses: huayuenh/cluster-service-action@main
         with:
           action: rollback
-          ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+          ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
           cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
           cluster-region: ${{ inputs.cluster-region || inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}
           config-file: .deploy.yaml

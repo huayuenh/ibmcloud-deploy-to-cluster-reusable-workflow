@@ -26,15 +26,20 @@ jobs:
       icr-namespace: ${{ steps.get-vars.outputs.icr-namespace }}
       cluster-name: ${{ steps.get-vars.outputs.cluster-name }}
       environment: ${{ steps.get-vars.outputs.environment }}
+      has-apikey: ${{ steps.check-key.outputs.has-key }}
     steps:
-      - name: Debug secret availability
+      - name: Check API key availability
+        id: check-key
         env:
           TEST_KEY: ${{ secrets.IBMCLOUD_API_KEY }}
         run: |
           if [ -n "$TEST_KEY" ]; then
             echo "✓ Secret IBMCLOUD_API_KEY is accessible (length: ${#TEST_KEY})"
+            echo "has-key=true" >> $GITHUB_OUTPUT
           else
             echo "✗ Secret IBMCLOUD_API_KEY is NOT accessible or empty"
+            echo "has-key=false" >> $GITHUB_OUTPUT
+            exit 1
           fi
       
       - name: Get environment variables
@@ -55,4 +60,5 @@ jobs:
       icr-region: ${{ needs.setup.outputs.icr-region }}
       icr-namespace: ${{ needs.setup.outputs.icr-namespace }}
       cluster-name: ${{ needs.setup.outputs.cluster-name }}
-    secrets: inherit
+    secrets:
+      ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
