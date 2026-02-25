@@ -27,6 +27,16 @@ jobs:
       cluster-name: ${{ steps.get-vars.outputs.cluster-name }}
       environment: ${{ steps.get-vars.outputs.environment }}
     steps:
+      - name: Debug secret availability
+        env:
+          TEST_KEY: ${{ secrets.IBMCLOUD_API_KEY }}
+        run: |
+          if [ -n "$TEST_KEY" ]; then
+            echo "✓ Secret IBMCLOUD_API_KEY is accessible (length: ${#TEST_KEY})"
+          else
+            echo "✗ Secret IBMCLOUD_API_KEY is NOT accessible or empty"
+          fi
+      
       - name: Get environment variables
         id: get-vars
         run: |
