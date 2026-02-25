@@ -1,0 +1,125 @@
+# This workflow will build a docker container, publish it to IBM Container Registry, and deploy it to IKS when there is a push to the "main" branch.
+#
+# To configure this workflow:
+#
+# 1. Ensure that your repository contains a Dockerfile
+# 2. Setup secrets in your repository by going to settings: Create ICR_NAMESPACE and IBM_CLOUD_API_KEY
+# 3. Change the values for the IBM_CLOUD_REGION, REGISTRY_HOSTNAME, IMAGE_NAME, IKS_CLUSTER, DEPLOYMENT_NAME, and PORT
+
+name: Build and Test PR
+
+on:
+  workflow_dispatch:
+    branches: [ main ]
+    inputs:
+      app-name:
+        description: 'Application name (defaults to repository name)'
+        required: false
+        type: string
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  pr-pipeline:
+    name: Setup, Test, Build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+
+    - id: checkout
+      name: Clone repo
+      uses: actions/checkout@v4
+
+    - id: set-commit-status-start
+      name: Set up initial commit status
+      uses: huayuenh/set-commit-status-common-action@main
+      with:
+        github_token: ${{ github.token }}
+        state: "pending"
+        description: "Running"
+        context: "PR Pipeline"
+        sha: ${{ github.sha }}
+        target_url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        github_repository: ${{ github.repository }}
+
+    - id: unit-test
+      name: Run Unit tests
+      run: |
+        npm install
+        npm run test-unit
+
+    - name: Build Docker image
+      id: build
+      uses: huayuenh/docker-container-build-action@main
+      with:
+        context: .
+        dockerfile: Dockerfile
+        app-name: ${{ github.event.inputs.app-name }}
+        tag: pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+        build-args: |
+          BUILD_DATE=${{ github.event.pull_request.updated_at }}
+          COMMIT_SHA=${{ github.sha }}
+        labels: |
+          org.opencontainers.image.created=${{ github.event.pull_request.updated_at }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.source=${{ github.repositoryUrl }}
+        no-cache: false
+        pull: true
+    
+    - name: Push to IBM Cloud Container Registry
+      id: push
+      uses: huayuenh/container-registry-service-action@main
+      with:
+        apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+        image: ${{ vars.ICR_REGION }}/${{ vars.ICR_NAMESPACE }}/${{ steps.build.outputs.image-name }}
+        local-image: ${{ steps.build.outputs.image-name }}
+        action: push
+        scan: true
+        region: ${{ vars.IBMCLOUD_REGION }}
+
+    - name: Delete PR image from registry
+      if: always()
+      uses: huayuenh/container-registry-service-action@main
+      with:
+        apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+        image: ${{ vars.ICR_REGION }}/${{ vars.ICR_NAMESPACE }}/${{ steps.build.outputs.image-name }}
+        action: delete
+        region: ${{ vars.IBMCLOUD_REGION }}
+      
+    - name: Display build summary
+      run: |
+        echo "### Build Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### Build Information" >> $GITHUB_STEP_SUMMARY
+        echo "**Image Name:** \`${{ steps.build.outputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Image ID:** \`${{ steps.build.outputs.image-id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Registry:** \`${{ vars.ICR_REGION }}/${{ vars.ICR_NAMESPACE }}/${{ steps.build.outputs.image-name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### Pull Request Information" >> $GITHUB_STEP_SUMMARY
+        echo "**PR Number:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.head_ref }}" >> $GITHUB_STEP_SUMMARY
+
+    - id: set-commit-status-fail
+      if: ${{ failure() }}
+      uses: huayuenh/set-commit-status-common-action@main
+      with:
+        github_token: ${{ github.token }}
+        state: "failure"
+        description: "Complete - Failure"
+        context: "PR Pipeline"
+        sha: ${{ github.sha }}
+        target_url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        github_repository: ${{ github.repository }}
+
+    - id: set-commit-status-success
+      if: ${{ success() }}
+      uses: huayuenh/set-commit-status-common-action@main
+      with:
+        github_token: ${{ github.token }}
+        state: "success"
+        description: "Complete - Success"
+        context: "PR Pipeline"
+        sha: ${{ github.sha }}
+        target_url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        github_repository: ${{ github.repository }}

@@ -1,0 +1,46 @@
+# Deployment Configuration
+# This file defines deployment settings for different environments
+
+# Default settings (applied to all environments unless overridden)
+defaults:
+  port: 8080
+  replicas: 3
+  service-type: ClusterIP
+  manifest-template: .k8s/deployment.yaml
+  resource-limits-cpu: 500m
+  resource-limits-memory: 512Mi
+  resource-requests-cpu: 250m
+  resource-requests-memory: 256Mi
+
+# Environment-specific settings
+environments:
+  production:
+    namespace: production
+    replicas: 3
+    env-vars:
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+  
+  staging:
+    namespace: staging
+    replicas: 2
+    resource-limits-cpu: 250m
+    resource-limits-memory: 256Mi
+    resource-requests-cpu: 125m
+    resource-requests-memory: 128Mi
+    env-vars:
+      ENVIRONMENT: staging
+      LOG_LEVEL: debug
+  
+  development:
+    namespace: development
+    replicas: 1
+    resource-limits-cpu: 250m
+    resource-limits-memory: 256Mi
+    resource-requests-cpu: 125m
+    resource-requests-memory: 128Mi
+    env-vars:
+      ENVIRONMENT: development
+      LOG_LEVEL: debug
+
+# Made with Bob

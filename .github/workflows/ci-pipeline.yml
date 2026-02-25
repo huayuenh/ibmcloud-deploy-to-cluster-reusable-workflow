@@ -1,0 +1,107 @@
+# This workflow will build a docker container, publish it to IBM Container Registry, and deploy it to IKS when there is a push to the "main" branch.
+#
+# To configure this workflow:
+#
+# 1. Ensure that your repository contains a Dockerfile
+# 2. Setup secrets in your repository by going to settings: Create ICR_NAMESPACE and IBM_CLOUD_API_KEY
+# 3. Change the values for the IBMCLOUD_REGION, REGISTRY_HOSTNAME, IMAGE_NAME, IKS_CLUSTER, DEPLOYMENT_NAME, and PORT
+
+name: Build and Deploy to IKS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      app-name:
+        description: 'Application name (defaults to repository name)'
+        required: false
+        type: string
+    namespace:
+      description: 'Kubernetes namespace for deployment'
+      required: false
+      type: string
+      default: 'production'
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Test, Build and Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'staging' || 'development' }}
+    steps:
+
+    - id: checkout
+      name: Clone repo
+      uses: actions/checkout@v4
+
+    - id: unit-test
+      name: Run Unit tests
+      run: |
+        npm install
+        npm run test-unit
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        load: true
+        tags: ${{ github.event.inputs.app-name || github.event.repository.name }}:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}
+        build-args: |
+          VERSION=${{ github.sha }}
+          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          COMMIT_SHA=${{ github.sha }}
+        labels: |
+          org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Push to IBM Cloud Container Registry
+      id: push
+      uses: huayuenh/container-registry-service-action@main
+      with:
+        apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+        image: ${{ vars.ICR_REGION }}/${{ vars.ICR_NAMESPACE }}/${{ github.event.inputs.app-name || github.event.repository.name }}:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}
+        local-image: ${{ github.event.inputs.app-name || github.event.repository.name }}:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}
+        action: push
+        scan: true
+        region: ${{ vars.IBMCLOUD_REGION }}
+
+    - name: Deploy to Kubernetes
+      id: deploy
+      if: github.event_name != 'pull_request'
+      uses: huayuenh/cluster-service-action@main
+      with:
+        image: ${{ vars.ICR_REGION }}/${{ vars.ICR_NAMESPACE }}/${{ github.event.repository.name }}:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || github.sha }}
+        ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+        cluster-name: ${{ vars.CLUSTER_NAME }}
+        cluster-region: ${{ vars.IBMCLOUD_REGION }}
+        config-file: .deploy.yaml
+        env-template: .env.template
+    
+    - name: Run acceptance tests
+      id: acceptance-tests
+      if: github.event_name != 'pull_request' && steps.deploy.outputs.deployment-status == 'success'
+      continue-on-error: true
+      run: |
+        APP_URL="${{ steps.deploy.outputs.application-url }}" ./test/acceptance-tests.sh
+
+    - name: Rollback deployment using Kubernetes native rollback
+      id: rollback
+      if: |
+        github.event_name != 'pull_request' &&
+        steps.acceptance-tests.outcome == 'failure'
+      uses: huayuenh/cluster-service-action@main
+      with:
+        action: rollback
+        ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
+        cluster-name: ${{ vars.CLUSTER_NAME }}
+        cluster-region: ${{ vars.IBMCLOUD_REGION }}
+        config-file: .deploy.yaml
