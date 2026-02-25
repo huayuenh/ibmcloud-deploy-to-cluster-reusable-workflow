@@ -17,10 +17,9 @@ on:
 
 jobs:
   # First job to read environment variables and secrets
-  # Note: No environment here so secrets can pass to reusable workflow
-  # Environment protection is applied in the reusable workflow's deploy job
   setup:
     runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || inputs.environment || 'staging' }}
     outputs:
       ibmcloud-region: ${{ steps.get-vars.outputs.ibmcloud-region }}
       icr-region: ${{ steps.get-vars.outputs.icr-region }}

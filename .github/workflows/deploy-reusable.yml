@@ -15,31 +15,27 @@ on:
         default: ''
       
       ibmcloud-region:
-        description: 'IBM Cloud region (e.g., eu-de, us-south)'
-        required: false
+        description: 'IBM Cloud region'
+        required: true
         type: string
-        default: ''
       
       icr-region:
-        description: 'IBM Cloud Container Registry region (e.g., de.icr.io, us.icr.io)'
-        required: false
+        description: 'IBM Cloud Container Registry region (e.g., us.icr.io)'
+        required: true
         type: string
-        default: ''
       
       icr-namespace:
         description: 'IBM Cloud Container Registry namespace'
-        required: false
+        required: true
         type: string
-        default: ''
       
       cluster-name:
         description: 'Kubernetes cluster name'
-        required: false
+        required: true
         type: string
-        default: ''
       
       cluster-region:
-        description: 'Cluster region (defaults to ibmcloud-region)'
+        description: 'Cluster region (deprecated, use ibmcloud-region)'
         required: false
         type: string
         default: ''
@@ -110,30 +106,16 @@ jobs:
           no-cache: false
           pull: true
       
-      - name: Debug inputs
-        env:
-          API_KEY: ${{ secrets.ibmcloud-apikey }}
-        run: |
-          echo "ICR Region: ${{ inputs.icr-region || vars.ICR_REGION }}"
-          echo "ICR Namespace: ${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}"
-          echo "IBM Cloud Region: ${{ inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}"
-          echo "Image name: ${{ steps.build.outputs.image-name }}"
-          if [ -n "$API_KEY" ]; then
-            echo "API key present: true (length: ${#API_KEY})"
-          else
-            echo "API key present: false"
-          fi
-      
       - name: Push to IBM Cloud Container Registry
         id: push
         uses: huayuenh/container-registry-service-action@main
         with:
           apikey: ${{ secrets.ibmcloud-apikey }}
-          image: ${{ inputs.icr-region || vars.ICR_REGION }}/${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}/${{ steps.build.outputs.image-name }}
+          image: ${{ inputs.icr-region }}/${{ inputs.icr-namespace }}/${{ steps.build.outputs.image-name }}
           local-image: ${{ steps.build.outputs.image-name }}
           action: push
           scan: true
-          region: ${{ inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}
+          region: ${{ inputs.ibmcloud-region }}
 
   deploy:
     name: Deploy to ${{ inputs.environment }}
@@ -154,8 +136,8 @@ jobs:
         with:
           image: ${{ needs.build.outputs.image }}
           ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
-          cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
-          cluster-region: ${{ inputs.cluster-region || inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}
+          cluster-name: ${{ inputs.cluster-name }}
+          cluster-region: ${{ inputs.ibmcloud-region }}
           config-file: .deploy.yaml
           env-template: .env.template
           manifest-template: .k8s/deployment.yaml
@@ -214,8 +196,8 @@ jobs:
         with:
           action: rollback
           ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
-          cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
-          cluster-region: ${{ inputs.cluster-region || inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}
+          cluster-name: ${{ inputs.cluster-name }}
+          cluster-region: ${{ inputs.ibmcloud-region }}
           config-file: .deploy.yaml
         env:
           GITHUB_ENVIRONMENT: ${{ inputs.environment }}
