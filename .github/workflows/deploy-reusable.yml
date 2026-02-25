@@ -24,7 +24,7 @@ on:
         description: 'Cluster region'
         required: false
         type: string
-        default: 'us-south'
+        default: ''
       
       run-acceptance-tests:
         description: 'Run acceptance tests after deployment'
@@ -122,7 +122,7 @@ jobs:
           image: ${{ needs.build.outputs.image }}
           ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
           cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
-          cluster-region: ${{ inputs.cluster-region }}
+          cluster-region: ${{ inputs.cluster-region || vars.IBMCLOUD_REGION }}
           config-file: .deploy.yaml
           env-template: .env.template
           manifest-template: .k8s/deployment.yaml
@@ -182,7 +182,7 @@ jobs:
           action: rollback
           ibmcloud-apikey: ${{ secrets.ibmcloud-apikey }}
           cluster-name: ${{ inputs.cluster-name || vars.CLUSTER_NAME }}
-          cluster-region: ${{ inputs.cluster-region }}
+          cluster-region: ${{ inputs.cluster-region || vars.IBMCLOUD_REGION }}
           config-file: .deploy.yaml
         env:
           GITHUB_ENVIRONMENT: ${{ inputs.environment }}
