@@ -81,6 +81,7 @@ jobs:
   build:
     name: Build and Push Image
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     outputs:
       image: ${{ steps.push.outputs.image }}
       image-name: ${{ steps.build.outputs.image-name }}
