@@ -110,12 +110,18 @@ jobs:
           pull: true
       
       - name: Debug inputs
+        env:
+          API_KEY: ${{ secrets.ibmcloud-apikey }}
         run: |
           echo "ICR Region: ${{ inputs.icr-region || vars.ICR_REGION }}"
           echo "ICR Namespace: ${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}"
           echo "IBM Cloud Region: ${{ inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}"
           echo "Image name: ${{ steps.build.outputs.image-name }}"
-          echo "API key present: ${{ secrets.ibmcloud-apikey != '' }}"
+          if [ -n "$API_KEY" ]; then
+            echo "API key present: true (length: ${#API_KEY})"
+          else
+            echo "API key present: false"
+          fi
       
       - name: Push to IBM Cloud Container Registry
         id: push
