@@ -109,6 +109,14 @@ jobs:
           no-cache: false
           pull: true
       
+      - name: Debug inputs
+        run: |
+          echo "ICR Region: ${{ inputs.icr-region || vars.ICR_REGION }}"
+          echo "ICR Namespace: ${{ inputs.icr-namespace || vars.ICR_NAMESPACE }}"
+          echo "IBM Cloud Region: ${{ inputs.ibmcloud-region || vars.IBMCLOUD_REGION }}"
+          echo "Image name: ${{ steps.build.outputs.image-name }}"
+          echo "API key present: ${{ secrets.ibmcloud-apikey != '' }}"
+      
       - name: Push to IBM Cloud Container Registry
         id: push
         uses: huayuenh/container-registry-service-action@main
