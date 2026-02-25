@@ -107,22 +107,6 @@ jobs:
           no-cache: false
           pull: true
       
-      - name: Debug API key availability
-        env:
-          API_KEY: ${{ secrets.ibmcloud-apikey }}
-        run: |
-          echo "=== Debug Information ==="
-          echo "ICR Region: ${{ inputs.icr-region }}"
-          echo "ICR Namespace: ${{ inputs.icr-namespace }}"
-          echo "IBM Cloud Region: ${{ inputs.ibmcloud-region }}"
-          echo "Image name: ${{ steps.build.outputs.image-name }}"
-          if [ -n "$API_KEY" ]; then
-            echo "✓ API key present: true (length: ${#API_KEY})"
-          else
-            echo "✗ API key present: false"
-            exit 1
-          fi
-      
       - name: Push to IBM Cloud Container Registry
         id: push
         uses: huayuenh/container-registry-service-action@main
@@ -153,16 +137,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Debug deploy inputs
-        run: |
-          echo "=== Deploy Job Debug ==="
-          echo "Image from build job: ${{ needs.build.outputs.image }}"
-          echo "Image name from build job: ${{ needs.build.outputs.image-name }}"
-          if [ -z "${{ needs.build.outputs.image }}" ]; then
-            echo "ERROR: Image output from build job is empty!"
-            exit 1
-          fi
       
       - name: Deploy to cluster
         id: deploy
