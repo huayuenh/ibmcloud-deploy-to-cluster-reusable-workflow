@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     outputs:
-      image: ${{ steps.push.outputs.image }}
+      image: ${{ steps.set-image.outputs.full-image }}
       image-name: ${{ steps.build.outputs.image-name }}
     
     steps:
@@ -133,6 +133,13 @@ jobs:
           action: push
           scan: true
           region: ${{ inputs.ibmcloud-region }}
+      
+      - name: Set full image output
+        id: set-image
+        run: |
+          FULL_IMAGE="${{ inputs.icr-region }}/${{ inputs.icr-namespace }}/${{ steps.build.outputs.image-name }}"
+          echo "full-image=$FULL_IMAGE" >> $GITHUB_OUTPUT
+          echo "Full image: $FULL_IMAGE"
 
   deploy:
     name: Deploy to ${{ inputs.environment }}
