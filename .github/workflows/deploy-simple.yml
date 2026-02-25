@@ -20,5 +20,9 @@ jobs:
     uses: ./.github/workflows/deploy-reusable.yml
     with:
       environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+      ibmcloud-region: ${{ vars.IBMCLOUD_REGION }}
+      icr-region: ${{ vars.ICR_REGION }}
+      icr-namespace: ${{ vars.ICR_NAMESPACE }}
+      cluster-name: ${{ vars.CLUSTER_NAME }}
     secrets:
       ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
