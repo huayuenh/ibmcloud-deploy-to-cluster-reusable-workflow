@@ -106,6 +106,22 @@ jobs:
           no-cache: false
           pull: true
       
+      - name: Debug API key availability
+        env:
+          API_KEY: ${{ secrets.ibmcloud-apikey }}
+        run: |
+          echo "=== Debug Information ==="
+          echo "ICR Region: ${{ inputs.icr-region }}"
+          echo "ICR Namespace: ${{ inputs.icr-namespace }}"
+          echo "IBM Cloud Region: ${{ inputs.ibmcloud-region }}"
+          echo "Image name: ${{ steps.build.outputs.image-name }}"
+          if [ -n "$API_KEY" ]; then
+            echo "✓ API key present: true (length: ${#API_KEY})"
+          else
+            echo "✗ API key present: false"
+            exit 1
+          fi
+      
       - name: Push to IBM Cloud Container Registry
         id: push
         uses: huayuenh/container-registry-service-action@main
