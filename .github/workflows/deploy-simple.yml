@@ -16,13 +16,34 @@ on:
         default: 'staging'
 
 jobs:
+  # First job to read environment variables
+  setup:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || inputs.environment || 'staging' }}
+    outputs:
+      ibmcloud-region: ${{ steps.get-vars.outputs.ibmcloud-region }}
+      icr-region: ${{ steps.get-vars.outputs.icr-region }}
+      icr-namespace: ${{ steps.get-vars.outputs.icr-namespace }}
+      cluster-name: ${{ steps.get-vars.outputs.cluster-name }}
+      environment: ${{ steps.get-vars.outputs.environment }}
+    steps:
+      - name: Get environment variables
+        id: get-vars
+        run: |
+          echo "ibmcloud-region=${{ vars.IBMCLOUD_REGION }}" >> $GITHUB_OUTPUT
+          echo "icr-region=${{ vars.ICR_REGION }}" >> $GITHUB_OUTPUT
+          echo "icr-namespace=${{ vars.ICR_NAMESPACE }}" >> $GITHUB_OUTPUT
+          echo "cluster-name=${{ vars.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+          echo "environment=${{ github.ref == 'refs/heads/main' && 'production' || inputs.environment || 'staging' }}" >> $GITHUB_OUTPUT
+  
   deploy:
+    needs: setup
     uses: ./.github/workflows/deploy-reusable.yml
     with:
-      environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-      ibmcloud-region: ${{ vars.IBMCLOUD_REGION }}
-      icr-region: ${{ vars.ICR_REGION }}
-      icr-namespace: ${{ vars.ICR_NAMESPACE }}
-      cluster-name: ${{ vars.CLUSTER_NAME }}
+      environment: ${{ needs.setup.outputs.environment }}
+      ibmcloud-region: ${{ needs.setup.outputs.ibmcloud-region }}
+      icr-region: ${{ needs.setup.outputs.icr-region }}
+      icr-namespace: ${{ needs.setup.outputs.icr-namespace }}
+      cluster-name: ${{ needs.setup.outputs.cluster-name }}
     secrets:
       ibmcloud-apikey: ${{ secrets.IBMCLOUD_API_KEY }}
